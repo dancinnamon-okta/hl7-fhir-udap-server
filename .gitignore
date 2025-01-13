@@ -3,7 +3,10 @@ node_modules/
 *.p12
 *.pfx
 *.pem
+*.cert
+*.key
 .serverless/
 serverless.yml
 deploy/work/*.yml
 deploy/work/state
+resource_servers.json

@@ -1,6 +1,7 @@
 'use strict';
 const authorizeLib = require('../lib/authorize')
 const AWS = require('aws-sdk');
+
 AWS.config.update({
 	region: process.env.AWS_REGION
 })
@@ -12,8 +13,8 @@ module.exports.authorizeHandler = async (event, context) => {
 
 	//TODO: it would be nice to check the key mapping cache early on so we know if this IDP is known yet or not.
 	//Right now we're reaching out to okta every time to see if we know about this IDP yet.
-	const dataHolderOrIdpMode = (event.requestContext.path == process.env.AUTHORIZE_PATH ? 'dataholder' : 'idp')
-	const authorizeResult = await authorizeLib.authorizeHandler(event.queryStringParameters, event.headers, dataHolderOrIdpMode)
+	const resourceServerId = event.pathParameters.resourceServerId
+	const authorizeResult = await authorizeLib.authorizeHandler(event.requestContext.path, event.queryStringParameters, event.headers, resourceServerId)
 
 	const outputHeaders = createHeaders(authorizeResult.headers)
 
@@ -24,7 +25,7 @@ module.exports.authorizeHandler = async (event, context) => {
 	console.log(authorizeResult)
 	try {
 		if(authorizeResult.newIdpMapping) {
-			await storeIdpMapping(authorizeResult.newIdpMapping)
+			await storeIdpMapping(authorizeResult.newIdpMapping, resourceServerId)
 		}
 		return {
 			statusCode: authorizeResult.statusCode,
@@ -44,7 +45,7 @@ module.exports.authorizeHandler = async (event, context) => {
 
 //Stores the OAuth key<->Community key in a dynamoDB for future retrieval
 //During tiered oauth.
-async function storeIdpMapping(mapping) {
+async function storeIdpMapping(mapping, resourceServerId) {
 	console.log('New IDP Registered- storing OAuth Public key in the database.')
 	console.log('Item to put in the DB:')
 	console.log(mapping)
@@ -52,8 +53,10 @@ async function storeIdpMapping(mapping) {
 		TableName: process.env.IDP_MAPPING_TABLE_NAME,
 		Item: {
 			idp_id: mapping.idp_id,
+			idp_name: mapping.idp_name,
 			idp_base_url: mapping.idp_base_url,
-			internal_credentials: mapping.internal_credentials
+			internal_credentials: mapping.internal_credentials,
+			original_resource_server_id: resourceServerId
 		}
 	}).promise()
 	console.log(result)

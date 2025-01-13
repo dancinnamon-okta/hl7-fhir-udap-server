@@ -22,10 +22,16 @@ module.exports.handlers = {
 
     handle_generate_serverless_config: async (rl, state) => {
         const serverlessConfigFile= `./work/serverless.${state.deploymentName}.yml`
+        const resourceServerConfigFile = `./work/resource_servers.json`
+
         const exampleServerlessConfigFile = SERVERLESS_AWS_EXAMPLE_CONFIG.replace('{platform}',state.oauthPlatform)
+        const exampleResourceServerConfigFile = './resource_servers.example.json'
 
         console.log(`Reading example serverless config at: ${exampleServerlessConfigFile}`)
         var serverlessConfig = YAML.parse(fs.readFileSync(exampleServerlessConfigFile, 'utf-8'));
+
+        console.log(`Reading example resource server config at: ${exampleResourceServerConfigFile}`)
+        var resourceServerConfig = JSON.parse(fs.readFileSync(exampleResourceServerConfigFile, 'utf-8'));
         
         serverlessConfig.service = `${serverlessConfig.service}-${state.deploymentName}`
         serverlessConfig.params.default.AWS_REGION = state.awsRegion
@@ -44,25 +50,30 @@ module.exports.handlers = {
         serverlessConfig.params.default.OAUTH_CLIENT_ID = state.oauthRuntimeAPIClientId
         serverlessConfig.params.default.OAUTH_PRIVATE_KEY_FILE = `udap_pki/${state.oauthRuntimeAPIPrivateKeyFile}`
 
-        serverlessConfig.params.default.COMMUNITY_CERT = state.udapCommunityCertFile
-        serverlessConfig.params.default.SERVER_KEY = state.udapMemberP12File
-        serverlessConfig.params.default.SERVER_KEY_PWD = state.udapMemberP12Pwd
+        resourceServerConfig[0].id = state.fhirResourceServerId
+        resourceServerConfig[0].trust_anchor = state.udapCommunityCertFile
+        resourceServerConfig[0].identity.san = `https://${state.baseDomain}/oauth2/${state.fhirResourceServerId}`
+        resourceServerConfig[0].identity.identity_store = state.udapMemberP12File
+        resourceServerConfig[0].identity.identity_store_pwd = state.udapMemberP12Pwd
 
-        serverlessConfig.params.default.IDP_SERVER_KEY = state.udapMemberP12File
-        serverlessConfig.params.default.IDP_SERVER_KEY_PWD = state.udapMemberP12Pwd
+        resourceServerConfig[1].id = state.idpAuthorizationServerId
+        resourceServerConfig[1].trust_anchor = state.udapCommunityCertFile
+        resourceServerConfig[1].identity.san = `https://${state.baseDomain}/oauth2/${state.idpAuthorizationServerId}`
+        resourceServerConfig[1].identity.identity_store = state.udapMemberP12File
+        resourceServerConfig[1].identity.identity_store_pwd = state.udapMemberP12Pwd
 
         serverlessConfig.params.default.ORGANIZATION_NAME = state.udapOrganizationName
         serverlessConfig.params.default.ORGANIZATION_ID = state.udapOrganizationId
 
         serverlessConfig.params.default.PURPOSE_OF_USE = state.udapPurposeOfUse
 
-        serverlessConfig.params.default.OAUTH_RESOURCE_SERVER_ID = state.fhirResourceServerId
-        serverlessConfig.params.default.OAUTH_IDP_RESOURCE_SERVER_ID = state.idpAuthorizationServerId
-
         serverlessConfig.params.default.LOGO_URI = state.logoUri
 
         console.log(`Writing new config file at: ${serverlessConfigFile}`)
         fs.writeFileSync(serverlessConfigFile, YAML.stringify(serverlessConfig), 'utf-8');
+        
+        console.log(`Writing new config file at: ${resourceServerConfigFile}`)
+        fs.writeFileSync(resourceServerConfigFile, JSON.stringify(resourceServerConfig), 'utf-8');
     },
 
     handle_setup_cloud_platform_certs: async (rl, state) => {
@@ -164,6 +175,9 @@ module.exports.handlers = {
         console.log('Copying serverless config file to the root of the project...')
         console.log(`Copying ./work/serverless.${state.deploymentName}.yml to ../serverless.${state.deploymentName}.yml`)
         execSync(`cp ./work/serverless.${state.deploymentName}.yml ../serverless.${state.deploymentName}.yml`, {cwd: './', stdio: 'inherit'})
+
+        console.log(`Copying ./work/resource_servers.json to ../resource_servers.json`)
+        execSync(`cp ./work/resource_servers.json ../resource_servers.json`, {cwd: './', stdio: 'inherit'})
 
         console.log('Copying OAuth API private key to the udap_pki folder...')
         console.log(`Copying ./work/${state.oauthRuntimeAPIPrivateKeyFile} to ../udap_pki/${state.oauthRuntimeAPIPrivateKeyFile}`)

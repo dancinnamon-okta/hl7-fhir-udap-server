@@ -3,7 +3,7 @@ const udapWellKnownLib = require('../lib/udap_well_known')
 
 //Metadata endpoints - AWS Lambda Interface
 module.exports.udapConfigHandler = async (event, context) => {
-	var udapConfigResult = await udapWellKnownLib.getUDAPConfiguration()
+	var udapConfigResult = await udapWellKnownLib.getUDAPConfiguration(event.pathParameters.resourceServerId)
 	return {
 		statusCode: udapConfigResult.statusCode,
 		body: JSON.stringify(udapConfigResult.body),

@@ -5,15 +5,16 @@ AWS.config.update({
 	region: process.env.AWS_REGION
 })
 const dynamoDB = new AWS.DynamoDB.DocumentClient()
+const ResourceServerConfig = require('../lib/resource_server_config')
 
 //UDAP Trusted Dynamic Client Registration Proxy for OAuth application registration
 module.exports.clientRegistrationHandler = async (event, context) => {
     var returnStatus = '400';
     var clientId = null
     var oauthPlatform = null
-    
-    const dataHolderOrIdpMode = event.requestContext.path == process.env.REGISTRATION_PATH ? 'dataholder' : 'idp'
-    const resourceServerId = (dataHolderOrIdpMode == 'dataholder' ? process.env.OAUTH_RESOURCE_SERVER_ID : process.env.OAUTH_IDP_RESOURCE_SERVER_ID)
+
+    const resourceServerId =  event.pathParameters.resourceServerId
+    const rsConfig = ResourceServerConfig.getResourceServerConfig(resourceServerId)
 
 	if(process.env.OAUTH_PLATFORM == 'okta') {
 		oauthPlatform = require('../lib/okta/udap_okta')
@@ -23,26 +24,26 @@ module.exports.clientRegistrationHandler = async (event, context) => {
 	}
     const oauthPlatformManagementClient = oauthPlatform.getAPIClient(process.env.OAUTH_ORG, process.env.OAUTH_CLIENT_ID, process.env.OAUTH_PRIVATE_KEY_FILE) 
 
-    var validatedRegistrationData = await tdcr_udapLib.validateUdapCommonRegistrationRequest(event.body, dataHolderOrIdpMode)
+    var validatedRegistrationData = await tdcr_udapLib.validateUdapCommonRegistrationRequest(event.body, event.requestContext.path, resourceServerId)
 
     if(validatedRegistrationData.verifiedJwt) {
         try {
-            const result = await checkSanRegistry(validatedRegistrationData.subjectAlternativeName)
+            const result = await checkSanRegistry(validatedRegistrationData.subjectAlternativeName, rsConfig.community_id)
 
             console.log("Registration request validated.")
             if (result == null) {
                 //new registration
                 console.log("Performing application create.")
-                await tdcr_udapLib.validateClientRegistrationMetaData(validatedRegistrationData.verifiedJwt, false, dataHolderOrIdpMode)
+                await tdcr_udapLib.validateClientRegistrationMetaData(validatedRegistrationData.verifiedJwt, false, resourceServerId)
                 clientId = await oauthPlatform.createClientApp(validatedRegistrationData.verifiedJwt, resourceServerId, validatedRegistrationData.verifiedJwtJwks, oauthPlatformManagementClient)
                 //TODO:  Scope handling needs to happen somewhere in here.
-                await updateSanRegistry(validatedRegistrationData.subjectAlternativeName, clientId)
+                await updateSanRegistry(validatedRegistrationData.subjectAlternativeName, clientId, rsConfig.community_id)
                 returnStatus = '201'
             }
             else if(validatedRegistrationData.verifiedJwt.body.grant_types.length > 0) {
                 //update/edit registration
                 console.log("Peforming application edit/update.")
-                await tdcr_udapLib.validateClientRegistrationMetaData(validatedRegistrationData.verifiedJwt, true, dataHolderOrIdpMode)
+                await tdcr_udapLib.validateClientRegistrationMetaData(validatedRegistrationData.verifiedJwt, true, resourceServerId)
                 
                 clientId = result.client_application_id
                 //TODO:  Scope handling needs to happen somewhere in here.
@@ -54,7 +55,7 @@ module.exports.clientRegistrationHandler = async (event, context) => {
                 console.log('Performing application delete.')
                 clientId = result.client_application_id
                 await oauthPlatform.deleteClientApp(result.client_application_id, resourceServerId, oauthPlatformManagementClient)
-                await deleteSanRegistry(validatedRegistrationData.subjectAlternativeName)
+                await deleteSanRegistry(validatedRegistrationData.subjectAlternativeName, rsConfig.community_id)
 
                 returnStatus = '200'
             }
@@ -105,7 +106,7 @@ module.exports.clientRegistrationHandler = async (event, context) => {
     }
 }
 
-async function updateSanRegistry(subjectAlternativeName, clientAppId)
+async function updateSanRegistry(subjectAlternativeName, clientAppId, communityId)
 {
 	console.log('New Client Registered storing appId in DB')
 	console.log('Item to put in the DB:')
@@ -113,14 +114,14 @@ async function updateSanRegistry(subjectAlternativeName, clientAppId)
 	const result = await dynamoDB.put({
 		TableName: process.env.SAN_REGISTRY_TABLE_NAME,
 		Item: {
-            subject_alternative_name: subjectAlternativeName,
+            subject_alternative_name: `${communityId}:${subjectAlternativeName}`,
 			client_application_id: clientAppId
 		}
 	}).promise()
 	console.log("Dynamo Put result: " + result)
 }
 
-async function checkSanRegistry(subjectAlternativeName)
+async function checkSanRegistry(subjectAlternativeName, communityId)
 {
 	console.log('Checking SAN Registry to see if this is existing registered app')
 	console.log('SAN to lookup:')
@@ -128,7 +129,7 @@ async function checkSanRegistry(subjectAlternativeName)
 	const result = await dynamoDB.get({
 		TableName: process.env.SAN_REGISTRY_TABLE_NAME,
 		Key: {
-            subject_alternative_name: subjectAlternativeName
+            subject_alternative_name: `${communityId}:${subjectAlternativeName}`
         }
 	}).promise()
     console.log("SAN Registry Item:")
@@ -141,14 +142,14 @@ async function checkSanRegistry(subjectAlternativeName)
     }
 }
 
-async function deleteSanRegistry(subjectAlternativeName)
+async function deleteSanRegistry(subjectAlternativeName, communityId)
 {
 	console.log('SAN to delete:')
 	console.log(subjectAlternativeName)
 	await dynamoDB.delete({
 		TableName: process.env.SAN_REGISTRY_TABLE_NAME,
 		Key: {
-            subject_alternative_name: subjectAlternativeName
+            subject_alternative_name: `${communityId}:${subjectAlternativeName}`
         }
 	}).promise()
 }

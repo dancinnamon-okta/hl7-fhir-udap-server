@@ -1,0 +1,38 @@
+[
+    {
+        "id": "okta_authz_server_id",
+        "community_id": "community_A",
+        "role": "dataholder",
+        "trust_anchor": "udap_pki/your_anchor.crt",
+        "signing_algorithm": "RS256",
+        "identity": {
+            "san": "SAN_TO_USE",
+            "identity_store": "udap_pki/server_identity.p12",
+            "identity_store_pwd": "p12_password"
+        }
+    },
+    {
+        "id": "okta_authz_server_id",
+        "community_id": "community_A",
+        "role": "idp",
+        "trust_anchor": "udap_pki/your_anchor.crt",
+        "signing_algorithm": "RS256",
+        "identity": {
+            "san": "SAN_TO_USE",
+            "identity_store": "udap_pki/server_identity.p12",
+            "identity_store_pwd": "p12_password"
+        }
+    },
+    {
+        "id": "okta_authz_server_id",
+        "community_id": "community_B",
+        "role": "dataholder",
+        "trust_anchor": "udap_pki/your_anchor.crt",
+        "signing_algorithm": "RS256",
+        "identity": {
+            "san": "SAN_TO_USE",
+            "identity_store": "udap_pki/server_identity.p12",
+            "identity_store_pwd": "p12_password"
+        }
+    }
+]
