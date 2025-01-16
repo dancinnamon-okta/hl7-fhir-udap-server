@@ -16,17 +16,29 @@ module.exports.authorizeHandler = async (event, context) => {
 	const resourceServerId = event.pathParameters.resourceServerId
 	const authorizeResult = await authorizeLib.authorizeHandler(event.requestContext.path, event.queryStringParameters, event.headers, resourceServerId)
 
-	const outputHeaders = createHeaders(authorizeResult.headers)
+
 
 	//If we registered a new IDP, we need to store a mapping between the
 	//OAuth public key and the intended /token endpoint, and the community private key.
 	//We're doing this here to abstract out the data storage from the business logic.
 	console.log("Authorize Result:")
 	console.log(authorizeResult)
+
+	//If we didn't get what we wanted from the authorize endpoint, let's return that instead of doing anything else.
+	if(authorizeResult.statusCode >= 400) {
+		return {
+			statusCode: authorizeResult.statusCode,
+			body: JSON.stringify(authorizeResult.body)
+		}
+	}
+
 	try {
 		if(authorizeResult.newIdpMapping) {
 			await storeIdpMapping(authorizeResult.newIdpMapping, resourceServerId)
 		}
+
+		const outputHeaders = createHeaders(authorizeResult.headers)
+
 		return {
 			statusCode: authorizeResult.statusCode,
 			headers: outputHeaders.headers,
