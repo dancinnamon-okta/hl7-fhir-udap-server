@@ -9,6 +9,23 @@
             "san": "SAN_TO_USE",
             "identity_store": "udap_pki/server_identity.p12",
             "identity_store_pwd": "p12_password"
+        },
+        "fhir_metadata": {
+            "udap_versions_supported": ["1"],
+            "udap_profiles_supported": ["udap_dcr", "udap_authn", "udap_authz", "udap_to"],
+            "udap_authorization_extensions_supported": [],
+            "udap_authorization_extensions_required": [],
+            "udap_certifications_supported": [],
+            "udap_certifications_required": [],
+            "grant_types_supported": ["authorization_code", "refresh_token",  "client_credentials"],
+            "scopes_supported": [
+                "openid",
+                "email",
+                "profile",
+                "udap",
+                "phone",
+                "fhirUser"
+            ]
         }
     },
     {
@@ -33,6 +50,26 @@
             "san": "SAN_TO_USE",
             "identity_store": "udap_pki/server_identity.p12",
             "identity_store_pwd": "p12_password"
+        },
+        "fhir_metadata": {
+            "udap_versions_supported": ["1"],
+            "udap_profiles_supported": ["udap_dcr", "udap_authn", "udap_authz", "udap_to"],
+            "udap_authorization_extensions_supported": [],
+            "udap_authorization_extensions_required": [],
+            "udap_certifications_supported": [],
+            "udap_certifications_required": [],
+            "grant_types_supported": ["authorization_code", "refresh_token",  "client_credentials"],
+            "scopes_supported": [
+                "openid",
+                "email",
+                "profile",
+                "udap",
+                "phone",
+                "fhirUser",
+                "offline_access",
+                "user/Patient.read",
+                "user/Patient.write"
+            ]
         }
     }
 ]
